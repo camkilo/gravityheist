@@ -35,6 +35,7 @@ const gameState = {
     canJump: false,
     lastGravityRotation: 0, // Timestamp of last gravity rotation
     cameraLerpProgress: 1, // 0 to 1, tracks camera interpolation
+    cameraInitialUp: new THREE.Vector3(0, 1, 0), // Initial "up" vector at start of interpolation
     cameraTargetUp: new THREE.Vector3(0, 1, 0), // Target "up" vector for camera
     cameraCurrentUp: new THREE.Vector3(0, 1, 0), // Current interpolated "up" vector
     cinematicMode: false,
@@ -419,10 +420,11 @@ function generateLevel() {
     world.generateModularRooms();
     world.generateLoot();
     
-    // Reset player position to center room (grid position 1,1)
+    // Reset player position to center room (grid position 1,1 = world 0,0,0)
     camera.position.set(0, -ROOM_SIZE / 2 + PLAYER_HEIGHT, 0);
     gameState.velocity.set(0, 0, 0);
     gameState.gravityDir.set(0, -1, 0);
+    gameState.cameraInitialUp.set(0, 1, 0);
     gameState.cameraTargetUp.set(0, 1, 0);
     gameState.cameraCurrentUp.set(0, 1, 0);
     gameState.cameraLerpProgress = 1;
@@ -468,8 +470,9 @@ function rotateGravityLeft() {
     gameState.lastGravityRotation = now;
     
     // Start camera interpolation
-    // New "up" vector is opposite to gravity
-    // up = -gravity = gravity * (-1)
+    // Store current up as initial, set new target
+    gameState.cameraInitialUp.copy(gameState.cameraCurrentUp);
+    // New "up" vector is opposite to gravity: up = -gravity = gravity * (-1)
     gameState.cameraTargetUp.copy(newGravity).multiplyScalar(-1);
     gameState.cameraLerpProgress = 0; // Reset lerp progress (0 = start, 1 = end)
 }
@@ -501,8 +504,9 @@ function rotateGravityRight() {
     gameState.lastGravityRotation = now;
     
     // Start camera interpolation
-    // New "up" vector is opposite to gravity
-    // up = -gravity = gravity * (-1)
+    // Store current up as initial, set new target
+    gameState.cameraInitialUp.copy(gameState.cameraCurrentUp);
+    // New "up" vector is opposite to gravity: up = -gravity = gravity * (-1)
     gameState.cameraTargetUp.copy(newGravity).multiplyScalar(-1);
     gameState.cameraLerpProgress = 0; // Reset lerp progress (0 = start, 1 = end)
 }
@@ -518,12 +522,14 @@ function updateCameraOrientation(deltaTime) {
         gameState.cameraLerpProgress = Math.min(1, gameState.cameraLerpProgress); // Clamp to [0, 1]
         
         // Linear interpolation (LERP) for smooth rotation
+        // Interpolate from initial up vector to target up vector
         // lerp(a, b, t) = a + (b - a) * t = a*(1-t) + b*t
         // Where:
-        //   a = current up vector
-        //   b = target up vector
-        //   t = interpolation factor [0, 1]
-        gameState.cameraCurrentUp.lerp(gameState.cameraTargetUp, deltaTime / CAMERA_LERP_DURATION);
+        //   a = initial up vector (at start of interpolation)
+        //   b = target up vector (desired final orientation)  
+        //   t = interpolation factor [0, 1] (clamped progress)
+        gameState.cameraCurrentUp.copy(gameState.cameraInitialUp)
+            .lerp(gameState.cameraTargetUp, gameState.cameraLerpProgress);
         gameState.cameraCurrentUp.normalize(); // Ensure unit vector: |up| = 1
         
         // Apply the new up vector to camera
