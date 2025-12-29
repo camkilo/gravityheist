@@ -523,13 +523,13 @@ function updateCameraOrientation(deltaTime) {
         //   a = current up vector
         //   b = target up vector
         //   t = interpolation factor [0, 1]
-        gameState.cameraCurrentUp.copy(gameState.cameraCurrentUp)
-            .lerp(gameState.cameraTargetUp, gameState.cameraLerpProgress);
+        gameState.cameraCurrentUp.lerp(gameState.cameraTargetUp, deltaTime / CAMERA_LERP_DURATION);
         gameState.cameraCurrentUp.normalize(); // Ensure unit vector: |up| = 1
         
         // Apply the new up vector to camera
-        // Note: This is a simplified version. Full implementation would use quaternions
-        // for proper camera reorientation
+        // This updates the camera's internal up vector for proper orientation
+        camera.up.copy(gameState.cameraCurrentUp);
+        camera.updateProjectionMatrix();
     }
 }
 
