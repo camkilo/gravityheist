@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
+// Constants for game tuning
+const GRAVITY_ROTATION_SPEED = 0.05;
+const PARTICLE_LIFETIME = 80;
+const VERTICAL_GRAVITY_THRESHOLD = 0.5;
+const ECHO_GUARD_HISTORY_LENGTH = 60;
+
 // Game state - Enhanced for Black Vaults
 const gameState = {
     level: 1,
@@ -29,6 +35,8 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 camera.position.set(0, 5, 0);
 
 // Renderer - Enhanced for cinematic effects
+// Note: Tone mapping adds post-processing overhead. For low-end devices,
+// consider disabling or using a simpler tone mapping algorithm.
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -523,11 +531,12 @@ class ProceduralWorld {
             } else if (userData.guardType === 'echo') {
                 // Echo Guards repeat player's last move pattern
                 userData.playerPositionHistory.push(playerPosition.clone());
-                if (userData.playerPositionHistory.length > 60) {
+                // Use circular buffer to prevent memory leak
+                if (userData.playerPositionHistory.length > ECHO_GUARD_HISTORY_LENGTH) {
                     userData.playerPositionHistory.shift();
                 }
-                // Move to where player was 60 frames ago
-                if (userData.playerPositionHistory.length >= 60) {
+                // Move to where player was ECHO_GUARD_HISTORY_LENGTH frames ago
+                if (userData.playerPositionHistory.length >= ECHO_GUARD_HISTORY_LENGTH) {
                     const echoTarget = userData.playerPositionHistory[0];
                     const dir = new THREE.Vector3().subVectors(echoTarget, guard.position).normalize();
                     guard.position.add(dir.multiplyScalar(userData.speed * 1.5 * gameState.timeWarp));
@@ -890,7 +899,7 @@ function createDestructionParticles(position) {
     });
 
     const particles = new THREE.Points(geometry, material);
-    particles.userData = { velocities, lifetime: 80 };
+    particles.userData = { velocities, lifetime: PARTICLE_LIFETIME };
     scene.add(particles);
     
     // Animate and remove
@@ -996,7 +1005,7 @@ function checkGroundCollision() {
         // Check if player is within platform radius
         if (horizontalDist < maxRadius) {
             // Check if player is at platform height (works for normal gravity)
-            if (Math.abs(gameState.gravity.y) > 0.5) {
+            if (Math.abs(gameState.gravity.y) > VERTICAL_GRAVITY_THRESHOLD) {
                 if (playerPos.y <= platformTop + 2 && playerPos.y >= platformTop) {
                     playerPos.y = platformTop + 2;
                     gameState.velocity.y = 0;
@@ -1081,12 +1090,12 @@ function animate() {
         
         // Gravity rotation controls (Q and E keys)
         if (moveState.rotateGravityLeft) {
-            gameState.gravityRotation += 0.05;
+            gameState.gravityRotation += GRAVITY_ROTATION_SPEED;
             const angle = gameState.gravityRotation;
             gameState.gravity.set(Math.sin(angle), -Math.cos(angle), 0);
         }
         if (moveState.rotateGravityRight) {
-            gameState.gravityRotation -= 0.05;
+            gameState.gravityRotation -= GRAVITY_ROTATION_SPEED;
             const angle = gameState.gravityRotation;
             gameState.gravity.set(Math.sin(angle), -Math.cos(angle), 0);
         }
@@ -1106,8 +1115,12 @@ function animate() {
     
     // Check game over
     if (gameState.health <= 0 || gameState.structuralIntegrity <= 0) {
+        // Reset all game state for clean respawn
         gameState.health = 100;
         gameState.structuralIntegrity = 100;
+        gameState.gravity.set(0, -1, 0);
+        gameState.gravityMagnitude = 1.0;
+        gameState.gravityRotation = 0;
         camera.position.set(0, 5, 0);
         gameState.velocity.set(0, 0, 0);
         cameraShake.intensity = 2.0;
