@@ -22,23 +22,52 @@ const mimeTypes = {
     '.wasm': 'application/wasm'
 };
 
-const server = http.createServer((req, res) => {
-    console.log(`${req.method} ${req.url}`);
+// Text-based MIME types that should use UTF-8 encoding
+const textTypes = new Set([
+    'text/html',
+    'text/css',
+    'text/javascript',
+    'application/json',
+    'image/svg+xml'
+]);
 
+const server = http.createServer((req, res) => {
+    // Sanitize URL for logging to prevent log injection
+    const sanitizedUrl = req.url.replace(/[\r\n]/g, '');
+    console.log(`${req.method} ${sanitizedUrl}`);
+
+    // Parse and normalize the requested path to prevent directory traversal
+    let filePath = path.normalize(req.url);
+    
+    // Remove query string and fragment
+    filePath = filePath.split('?')[0].split('#')[0];
+    
     // Default to index.html for root path
-    let filePath = '.' + req.url;
-    if (filePath === './') {
-        filePath = './index.html';
+    if (filePath === '/' || filePath === '.') {
+        filePath = '/index.html';
+    }
+    
+    // Remove leading slash for file system access
+    if (filePath.startsWith('/')) {
+        filePath = filePath.substring(1);
+    }
+    
+    // Prevent directory traversal - ensure path doesn't escape current directory
+    const resolvedPath = path.resolve(__dirname, filePath);
+    if (!resolvedPath.startsWith(__dirname)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
     }
 
     const extname = String(path.extname(filePath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
 
-    fs.readFile(filePath, (error, content) => {
+    fs.readFile(resolvedPath, (error, content) => {
         if (error) {
             if (error.code === 'ENOENT') {
                 // File not found, serve index.html for client-side routing
-                fs.readFile('./index.html', (error, content) => {
+                fs.readFile(path.resolve(__dirname, 'index.html'), (error, content) => {
                     if (error) {
                         res.writeHead(500);
                         res.end('Error loading index.html');
@@ -53,7 +82,7 @@ const server = http.createServer((req, res) => {
                 });
             } else {
                 res.writeHead(500);
-                res.end('Server Error: ' + error.code);
+                res.end('Server Error');
             }
         } else {
             res.writeHead(200, { 
@@ -61,7 +90,12 @@ const server = http.createServer((req, res) => {
                 'Cross-Origin-Embedder-Policy': 'require-corp',
                 'Cross-Origin-Opener-Policy': 'same-origin'
             });
-            res.end(content, 'utf-8');
+            // Only use UTF-8 encoding for text-based content
+            if (textTypes.has(contentType)) {
+                res.end(content, 'utf-8');
+            } else {
+                res.end(content);
+            }
         }
     });
 });
