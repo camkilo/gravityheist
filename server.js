@@ -10,7 +10,8 @@ const mimeTypes = {
     '.css': 'text/css',
     '.json': 'application/json',
     '.png': 'image/png',
-    '.jpg': 'image/jpg',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
     '.gif': 'image/gif',
     '.svg': 'image/svg+xml',
     '.wav': 'audio/wav',
@@ -53,8 +54,12 @@ const server = http.createServer((req, res) => {
     }
     
     // Prevent directory traversal - ensure path doesn't escape current directory
+    const baseDir = path.resolve(__dirname);
     const resolvedPath = path.resolve(__dirname, filePath);
-    if (!resolvedPath.startsWith(__dirname)) {
+    const normalizedBase = path.normalize(baseDir);
+    const normalizedPath = path.normalize(resolvedPath);
+    
+    if (!normalizedPath.startsWith(normalizedBase + path.sep) && normalizedPath !== normalizedBase) {
         res.writeHead(403);
         res.end('Forbidden');
         return;
