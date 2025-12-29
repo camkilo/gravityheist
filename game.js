@@ -917,7 +917,7 @@ document.getElementById('startButton').addEventListener('click', () => {
 
 controls.addEventListener('lock', () => {
     gameState.isPlaying = true;
-    if (world.platforms.length === 0) {
+    if (world.rooms.length === 0) {
         generateLevel();
     }
 });
