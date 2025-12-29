@@ -21,7 +21,7 @@ scene.background = new THREE.Color(0x000510);
 scene.fog = new THREE.Fog(0x000510, 10, 100);
 
 // Camera
-const camera = new THREE.Camera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 5, 0);
 
 // Renderer
@@ -146,11 +146,16 @@ class ProceduralWorld {
             
             const loot = new THREE.Mesh(geometry, material);
             
-            // Place loot on platforms
-            if (i < this.platforms.length) {
-                const platform = this.platforms[i];
-                loot.position.copy(platform.position);
-                loot.position.y += 2;
+            // Place loot on platforms (cycling through available platforms)
+            const platformIndex = i % this.platforms.length;
+            const platform = this.platforms[platformIndex];
+            loot.position.copy(platform.position);
+            loot.position.y += 2;
+            
+            // Add some variation if multiple loot items on same platform
+            if (i >= this.platforms.length) {
+                loot.position.x += (this.random() - 0.5) * 4;
+                loot.position.z += (this.random() - 0.5) * 4;
             }
             
             loot.userData = { 
@@ -308,7 +313,9 @@ class ProceduralWorld {
             cone.position.z = -4;
             guard.add(cone);
             
-            const platform = this.platforms[Math.min(i + 5, this.platforms.length - 1)];
+            // Distribute guards across platforms more evenly
+            const platformIndex = Math.floor((i + 1) * this.platforms.length / 6);
+            const platform = this.platforms[Math.min(platformIndex, this.platforms.length - 1)];
             guard.position.copy(platform.position);
             guard.position.y += 2;
             
@@ -341,7 +348,8 @@ class ProceduralWorld {
                 .subVectors(targetPoint, guard.position)
                 .normalize();
             
-            guard.position.add(direction.multiplyScalar(userData.speed * gameState.timeWarp));
+            const moveSpeed = userData.speed * gameState.timeWarp;
+            guard.position.add(direction.clone().multiplyScalar(moveSpeed));
             
             // Look at patrol direction
             guard.lookAt(targetPoint);
@@ -367,11 +375,11 @@ class ProceduralWorld {
                     guard.material.emissiveIntensity = 0.3 + (userData.alertLevel / 100) * 0.7;
                     
                     if (userData.alertLevel > 50) {
-                        // Chase player
+                        // Chase player with time warp
                         const chaseDir = new THREE.Vector3()
                             .subVectors(playerPosition, guard.position)
                             .normalize();
-                        guard.position.add(chaseDir.multiplyScalar(userData.speed * 2));
+                        guard.position.add(chaseDir.multiplyScalar(userData.speed * 2 * gameState.timeWarp));
                         
                         // Damage player if close
                         if (distanceToPlayer < 2) {
@@ -559,10 +567,10 @@ function createCollectionParticles(position) {
         const vel = particles.userData.velocities;
         
         for (let i = 0; i < pos.length; i += 3) {
-            pos[i] += vel[i / 3 * 3];
-            pos[i + 1] += vel[i / 3 * 3 + 1];
-            pos[i + 2] += vel[i / 3 * 3 + 2];
-            vel[i / 3 * 3 + 1] -= 0.02; // Gravity
+            pos[i] += vel[i];
+            pos[i + 1] += vel[i + 1];
+            pos[i + 2] += vel[i + 2];
+            vel[i + 1] -= 0.02; // Gravity
         }
         
         particles.geometry.attributes.position.needsUpdate = true;
@@ -586,16 +594,21 @@ function checkGroundCollision() {
     const playerPos = camera.position;
     
     world.platforms.forEach(platform => {
-        const halfWidth = platform.geometry.parameters.width / 2;
-        const halfDepth = platform.geometry.parameters.depth / 2;
         const platformTop = platform.position.y + platform.geometry.parameters.height / 2;
         
-        // Check if player is above platform
-        if (playerPos.x > platform.position.x - halfWidth &&
-            playerPos.x < platform.position.x + halfWidth &&
-            playerPos.z > platform.position.z - halfDepth &&
-            playerPos.z < platform.position.z + halfDepth) {
-            
+        // Use approximate radius-based collision to handle rotated platforms
+        const maxRadius = Math.max(
+            platform.geometry.parameters.width,
+            platform.geometry.parameters.depth
+        ) / 2;
+        
+        const horizontalDist = Math.sqrt(
+            Math.pow(playerPos.x - platform.position.x, 2) +
+            Math.pow(playerPos.z - platform.position.z, 2)
+        );
+        
+        // Check if player is within platform radius
+        if (horizontalDist < maxRadius) {
             // Check if player is at platform height
             if (playerPos.y <= platformTop + 2 && playerPos.y >= platformTop) {
                 playerPos.y = platformTop + 2;
