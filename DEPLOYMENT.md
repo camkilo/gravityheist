@@ -1,44 +1,60 @@
-# Deployment Guide for Gravity Heist
+# Deployment Guide for GRAVITY HEIST: BLACK VAULTS
 
-This guide provides step-by-step instructions for deploying Gravity Heist to various platforms.
+This guide provides step-by-step instructions for deploying the Black Vaults game to various platforms.
+
+## Architecture Overview
+
+**Game Type:** Cinematic 3D web game (not a static site)  
+**Backend:** Node.js static file server  
+**Frontend:** Three.js-based 3D game  
+**Deployment:** Can deploy backend to Render, frontend to Vercel or both to Render
 
 ## Quick Deploy Options
 
-### Option 1: Deploy to Vercel (Recommended)
+### Option 1: Deploy Backend to Render (Recommended for Full Experience)
+
+**Using render.yaml (Automatic):**
+1. Fork the repository to your GitHub account
+2. Go to [Render Dashboard](https://dashboard.render.com/)
+3. Click "New +" → "Web Service"
+4. Connect your GitHub repository
+5. Render will auto-detect `render.yaml` configuration
+6. Click "Create Web Service"
+
+**Configuration Details:**
+- Build Command: `yarn install` (or `npm install`)
+- Start Command: `node server.js`
+- Environment: Node.js
+- Port: Automatically assigned (server uses `process.env.PORT`)
+
+**Features:**
+- Full Node.js backend support
+- Automatic SSL/HTTPS
+- Free tier available
+- Custom domain support
+- Environment variables (NODE_ENV=production)
+
+### Option 2: Deploy Frontend to Vercel (Static Assets Only)
 
 **One-Click Deploy:**
 1. Click the "Deploy with Vercel" button in the README
 2. Sign in with GitHub
 3. Click "Deploy"
-4. Your game will be live in seconds!
+4. Your frontend will be live in seconds!
 
 **Manual Deploy:**
 1. Install Vercel CLI: `npm install -g vercel`
 2. Navigate to project directory
 3. Run `vercel` and follow prompts
-4. Your game will be deployed with custom domain
+4. Custom domain configuration available
 
 **Configuration:**
-- `vercel.json` is pre-configured for static site hosting
+- `vercel.json` is pre-configured for static assets
 - Includes CORS headers for Three.js CDN resources
-- No build step required
+- Automatic HTTPS and global CDN
+- Edge caching for performance
 
-### Option 2: Deploy to Render
-
-**Using render.yaml (Recommended):**
-1. Fork the repository to your GitHub account
-2. Go to [Render Dashboard](https://dashboard.render.com/)
-3. Click "New +" → "Static Site"
-4. Connect your GitHub repository
-5. Render will auto-detect `render.yaml`
-6. Click "Create Static Site"
-
-**Manual Configuration:**
-1. Create new Static Site on Render
-2. Connect repository
-3. Set publish directory to `.` (root)
-4. No build command needed
-5. Deploy!
+**Note:** Vercel deployment serves static files only. The Node.js server in `server.js` is not used on Vercel.
 
 ### Option 3: Netlify
 
@@ -76,23 +92,42 @@ Supported hosts:
 
 ## Local Development
 
-**Option 1: Using Python:**
+**Using Node.js (Recommended):**
+```bash
+# Install dependencies (optional, no external deps required)
+npm install
+
+# Start the server
+npm start
+# or
+node server.js
+
+# Server runs on http://localhost:3000
+```
+
+**Environment Variables:**
+```bash
+PORT=3001 node server.js  # Run on custom port
+NODE_ENV=production node server.js  # Production mode
+```
+
+**Alternative: Python (Simple Testing):**
 ```bash
 python3 -m http.server 8080
 ```
 
-**Option 2: Using Node.js:**
-```bash
-npm start
-```
-(Requires `package.json` which is included)
-
-**Option 3: Using PHP:**
+**Alternative: PHP:**
 ```bash
 php -S localhost:8080
 ```
 
-Then open http://localhost:8080 in your browser.
+**Note:** The Node.js server (`server.js`) is production-ready with:
+- Secure path traversal prevention
+- Proper MIME type handling
+- CORS headers for SharedArrayBuffer
+- Fallback to index.html for client-side routing
+
+Then open http://localhost:3000 (or your chosen port) in your browser.
 
 ## Deployment Checklist
 
