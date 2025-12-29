@@ -1,0 +1,23 @@
+{
+  "name": "gravityheist",
+  "version": "1.0.0",
+  "description": "A surreal 3D heist game where players navigate procedurally generated floating architecture, evade adaptive AI security, and collect loot across gravity-shifting zones and time-warped areas",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server -p 3000",
+    "dev": "npx http-server -p 3000"
+  },
+  "keywords": [
+    "game",
+    "3d",
+    "threejs",
+    "procedural-generation",
+    "heist"
+  ],
+  "author": "camkilo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/camkilo/gravityheist.git"
+  }
+}

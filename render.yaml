@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: gravityheist
+    env: static
+    buildCommand: echo "No build required"
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cross-Origin-Embedder-Policy
+        value: require-corp
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

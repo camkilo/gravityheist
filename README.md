@@ -88,6 +88,33 @@ The game is built as a standalone HTML/JavaScript application:
 
 No build process required - simply open `index.html` in a browser to play.
 
+## Deployment
+
+### Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/camkilo/gravityheist)
+
+1. Click the "Deploy" button above
+2. Connect your GitHub account
+3. Deploy - no build configuration needed!
+
+### Deploy to Render
+
+1. Fork this repository
+2. Create a new Static Site on [Render](https://render.com)
+3. Connect your forked repository
+4. Render will automatically detect the `render.yaml` configuration
+5. Deploy!
+
+### Manual Deployment
+
+The game is a static site - simply upload the following files to any web host:
+- `index.html`
+- `game.js`
+- All other repository files
+
+No build process or server-side code required.
+
 ## Gameplay Tips
 
 1. **Gravity Zones**: Use LOW gravity zones to reach high platforms, avoid HIGH gravity areas
