@@ -1,7 +1,7 @@
 {
-  "name": "gravityheist",
-  "version": "1.0.0",
-  "description": "A surreal 3D heist game where players navigate procedurally generated floating architecture, evade adaptive AI security, and collect loot across gravity-shifting zones and time-warped areas",
+  "name": "gravityheist-blackvaults",
+  "version": "2.0.0",
+  "description": "GRAVITY HEIST: BLACK VAULTS - A cinematic 3D heist game set in impossible megastructures with rotating gravity, physics-driven destruction, adaptive enemy AI, and time-fracture zones",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,12 +12,18 @@
     "3d",
     "threejs",
     "procedural-generation",
-    "heist"
+    "heist",
+    "physics",
+    "cinematic",
+    "roguelike"
   ],
   "author": "camkilo",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/camkilo/gravityheist.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
