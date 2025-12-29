@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Heist - Interdimensional Thieves</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background: #000;
+        }
+
+        #gameCanvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #0ff;
+            font-size: 16px;
+            text-shadow: 0 0 10px #0ff;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        #hud div {
+            margin: 5px 0;
+        }
+
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: #0ff;
+            font-size: 14px;
+            text-shadow: 0 0 10px #0ff;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        #levelComplete {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid #0ff;
+            padding: 30px;
+            color: #0ff;
+            font-size: 24px;
+            text-shadow: 0 0 20px #0ff;
+            z-index: 2000;
+            display: none;
+            text-align: center;
+        }
+
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #0ff;
+            z-index: 3000;
+        }
+
+        #startScreen h1 {
+            font-size: 48px;
+            text-shadow: 0 0 20px #0ff;
+            margin-bottom: 20px;
+        }
+
+        #startScreen p {
+            font-size: 18px;
+            margin: 10px 0;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        #startButton {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 24px;
+            background: transparent;
+            border: 2px solid #0ff;
+            color: #0ff;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px #0ff;
+            transition: all 0.3s;
+        }
+
+        #startButton:hover {
+            background: #0ff;
+            color: #000;
+            box-shadow: 0 0 20px #0ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>GRAVITY HEIST</h1>
+        <p>Welcome, Interdimensional Thief!</p>
+        <p>Navigate surreal floating architecture, dodge adaptive AI security,</p>
+        <p>collect loot in gravity-shifting zones, and escape through time-warped areas.</p>
+        <button id="startButton">START HEIST</button>
+    </div>
+
+    <div id="hud">
+        <div id="level">Level: 1</div>
+        <div id="loot">Loot: 0 / 10</div>
+        <div id="health">Health: 100</div>
+        <div id="gravity">Gravity: NORMAL</div>
+        <div id="timeWarp">Time: NORMAL</div>
+    </div>
+
+    <div id="instructions">
+        WASD: Move | SPACE: Jump | Mouse: Look | Shift: Sprint | E: Collect Loot
+    </div>
+
+    <div id="levelComplete">
+        <h2>LEVEL COMPLETE!</h2>
+        <p>Press ENTER to continue to next dimension...</p>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
