@@ -5,7 +5,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 const GRAVITY = 25; // Gravity magnitude in units/s^2
 const PLAYER_HEIGHT = 1.8; // Capsule collider height
 const PLAYER_RADIUS = 0.35; // Capsule collider radius
-const FIXED_TIMESTEP = 1/60; // Fixed timestep: 16.67ms per frame
+const FIXED_TIMESTEP = 1/60; // Fixed timestep: ~16.67ms per physics step
 const GRAVITY_ROTATION_COOLDOWN = 0.6; // Seconds between gravity rotations
 const CAMERA_LERP_DURATION = 0.4; // Camera interpolation duration in seconds
 const AIR_CONTROL_FACTOR = 0.4; // Air control is 40% of ground control
@@ -461,9 +461,10 @@ function rotateGravityLeft() {
     //   · = dot product
     // For 90° rotation: cos(90°) = 0, sin(90°) = 1
     // Simplified: v' = (k×v) + k*(k·v)
+    // Note: Three.js applyAxisAngle() implements Rodrigues' formula internally
     const angle = Math.PI / 2; // 90 degrees in radians
     const newGravity = gameState.gravityDir.clone();
-    newGravity.applyAxisAngle(forward, angle); // Apply Rodrigues' formula
+    newGravity.applyAxisAngle(forward, angle); // Three.js rotation using Rodrigues' formula
     newGravity.normalize(); // Ensure unit vector: |newGravity| = 1
     
     gameState.gravityDir.copy(newGravity);
@@ -495,9 +496,10 @@ function rotateGravityRight() {
     // Rotate current gravity 90° clockwise around forward axis
     // Using Rodrigues' rotation formula (see rotateGravityLeft for details)
     // Clockwise = negative angle
+    // Note: Three.js applyAxisAngle() implements Rodrigues' formula internally
     const angle = -Math.PI / 2; // -90 degrees in radians
     const newGravity = gameState.gravityDir.clone();
-    newGravity.applyAxisAngle(forward, angle); // Apply Rodrigues' formula
+    newGravity.applyAxisAngle(forward, angle); // Three.js rotation using Rodrigues' formula
     newGravity.normalize(); // Ensure unit vector: |newGravity| = 1
     
     gameState.gravityDir.copy(newGravity);
@@ -785,7 +787,11 @@ function processMovement(delta) {
     // moveDir = forward*cameraForward + right*cameraRight
     moveDir.addScaledVector(cameraForward, forward); // Add forward component
     moveDir.addScaledVector(cameraRight, right); // Add right component
-    moveDir.normalize(); // Ensure unit vector: |moveDir| = 1
+    // Clamp magnitude to 1.0 to prevent diagonal movement being faster
+    // |moveDir| should not exceed 1.0
+    if (moveDir.lengthSq() > 1.0) {
+        moveDir.normalize(); // Only normalize if magnitude > 1
+    }
     
     // Project movement onto gravity-orthogonal plane
     // For a plane with normal n, projection of v onto plane:
@@ -797,6 +803,13 @@ function processMovement(delta) {
     //   proj_n(v) = (v·n)n = component of v along n
     const dotProduct = moveDir.dot(gameState.gravityDir); // v·n
     const projection = moveDir.clone().addScaledVector(gameState.gravityDir, -dotProduct); // v - (v·n)n
+    
+    // Check if projection is too small (moving directly along gravity)
+    // If |projection| is very small, no horizontal movement is possible
+    const projectionLength = projection.length();
+    if (projectionLength < 0.001) {
+        return; // No meaningful movement on gravity-orthogonal plane
+    }
     projection.normalize(); // Ensure unit vector: |projection| = 1
     
     // Apply movement force
