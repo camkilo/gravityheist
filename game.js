@@ -123,23 +123,32 @@ class ProceduralWorld {
 
     generateModularRooms() {
         // Generate 9 rooms arranged in 3×3 grid
-        // Each room = 10×10×10 cube
+        // Grid layout (each cell is a 10×10×10 room):
+        //   (0,2) (1,2) (2,2)
+        //   (0,1) (1,1) (2,1)
+        //   (0,0) (1,0) (2,0)
+        // Center room (1,1) is at world origin (0,0,0)
         for (let gridX = 0; gridX < GRID_SIZE; gridX++) {
             for (let gridZ = 0; gridZ < GRID_SIZE; gridZ++) {
                 this.generateRoom(gridX, gridZ);
             }
         }
         
-        // Generate corridors between rooms
+        // Generate corridors between adjacent rooms
+        // Corridors connect through doorway openings in walls
         this.generateCorridors();
     }
     
     generateRoom(gridX, gridZ) {
-        // Calculate room center position
-        // Rooms are spaced ROOM_SIZE units apart in a grid
+        // Calculate room center position in world space
+        // Grid to world conversion: worldPos = (gridPos - 1) * ROOM_SIZE
+        // Examples:
+        //   grid (0,0) → world (-10, 0, -10)
+        //   grid (1,1) → world (  0, 0,   0) [center]
+        //   grid (2,2) → world ( 10, 0,  10)
         const roomX = (gridX - 1) * ROOM_SIZE; // Center grid at origin
         const roomZ = (gridZ - 1) * ROOM_SIZE;
-        const roomY = 0;
+        const roomY = 0; // All rooms at same Y level
         
         const roomGroup = new THREE.Group();
         roomGroup.position.set(roomX, roomY, roomZ);
@@ -426,58 +435,76 @@ function generateLevel() {
 // Rotate gravity 90° left (Q key) or right (E key) around camera forward axis
 function rotateGravityLeft() {
     const now = performance.now() / 1000;
+    
     // Check cooldown: 0.6 seconds since last rotation
+    // if (currentTime - lastRotationTime < cooldown) then skip
     if (now - gameState.lastGravityRotation < GRAVITY_ROTATION_COOLDOWN) {
         return; // Still in cooldown
     }
     
     // Get camera forward direction (normalized)
+    // forward = camera.direction / |camera.direction|
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
-    forward.normalize();
+    forward.normalize(); // Ensure unit vector: |forward| = 1
     
     // Rotate current gravity 90° counter-clockwise around forward axis
-    // Using Rodrigues' rotation formula: v' = v*cos(θ) + (k×v)*sin(θ) + k*(k·v)*(1-cos(θ))
+    // Using Rodrigues' rotation formula:
+    // v' = v*cos(θ) + (k×v)*sin(θ) + k*(k·v)*(1-cos(θ))
+    // Where:
+    //   v = input vector (gravityDir)
+    //   k = axis of rotation (forward)
+    //   θ = rotation angle (90°)
+    //   × = cross product
+    //   · = dot product
     // For 90° rotation: cos(90°) = 0, sin(90°) = 1
-    const angle = Math.PI / 2; // 90 degrees
+    // Simplified: v' = (k×v) + k*(k·v)
+    const angle = Math.PI / 2; // 90 degrees in radians
     const newGravity = gameState.gravityDir.clone();
-    newGravity.applyAxisAngle(forward, angle);
-    newGravity.normalize();
+    newGravity.applyAxisAngle(forward, angle); // Apply Rodrigues' formula
+    newGravity.normalize(); // Ensure unit vector: |newGravity| = 1
     
     gameState.gravityDir.copy(newGravity);
     gameState.lastGravityRotation = now;
     
     // Start camera interpolation
     // New "up" vector is opposite to gravity
+    // up = -gravity = gravity * (-1)
     gameState.cameraTargetUp.copy(newGravity).multiplyScalar(-1);
-    gameState.cameraLerpProgress = 0;
+    gameState.cameraLerpProgress = 0; // Reset lerp progress (0 = start, 1 = end)
 }
 
 function rotateGravityRight() {
     const now = performance.now() / 1000;
+    
     // Check cooldown: 0.6 seconds since last rotation
+    // if (currentTime - lastRotationTime < cooldown) then skip
     if (now - gameState.lastGravityRotation < GRAVITY_ROTATION_COOLDOWN) {
         return; // Still in cooldown
     }
     
     // Get camera forward direction (normalized)
+    // forward = camera.direction / |camera.direction|
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
-    forward.normalize();
+    forward.normalize(); // Ensure unit vector: |forward| = 1
     
     // Rotate current gravity 90° clockwise around forward axis
-    const angle = -Math.PI / 2; // -90 degrees
+    // Using Rodrigues' rotation formula (see rotateGravityLeft for details)
+    // Clockwise = negative angle
+    const angle = -Math.PI / 2; // -90 degrees in radians
     const newGravity = gameState.gravityDir.clone();
-    newGravity.applyAxisAngle(forward, angle);
-    newGravity.normalize();
+    newGravity.applyAxisAngle(forward, angle); // Apply Rodrigues' formula
+    newGravity.normalize(); // Ensure unit vector: |newGravity| = 1
     
     gameState.gravityDir.copy(newGravity);
     gameState.lastGravityRotation = now;
     
     // Start camera interpolation
     // New "up" vector is opposite to gravity
+    // up = -gravity = gravity * (-1)
     gameState.cameraTargetUp.copy(newGravity).multiplyScalar(-1);
-    gameState.cameraLerpProgress = 0;
+    gameState.cameraLerpProgress = 0; // Reset lerp progress (0 = start, 1 = end)
 }
 
 // Update camera orientation to smoothly interpolate to new "up" vector
@@ -485,13 +512,20 @@ function updateCameraOrientation(deltaTime) {
     if (gameState.cameraLerpProgress < 1) {
         // Increment lerp progress based on time
         // Duration is 0.4 seconds, so progress increases by deltaTime / 0.4
+        // progress(t) = progress(t-1) + Δt / duration
+        // When progress reaches 1.0, interpolation is complete
         gameState.cameraLerpProgress += deltaTime / CAMERA_LERP_DURATION;
-        gameState.cameraLerpProgress = Math.min(1, gameState.cameraLerpProgress);
+        gameState.cameraLerpProgress = Math.min(1, gameState.cameraLerpProgress); // Clamp to [0, 1]
         
-        // Spherical linear interpolation (SLERP) for smooth rotation
+        // Linear interpolation (LERP) for smooth rotation
+        // lerp(a, b, t) = a + (b - a) * t = a*(1-t) + b*t
+        // Where:
+        //   a = current up vector
+        //   b = target up vector
+        //   t = interpolation factor [0, 1]
         gameState.cameraCurrentUp.copy(gameState.cameraCurrentUp)
             .lerp(gameState.cameraTargetUp, gameState.cameraLerpProgress);
-        gameState.cameraCurrentUp.normalize();
+        gameState.cameraCurrentUp.normalize(); // Ensure unit vector: |up| = 1
         
         // Apply the new up vector to camera
         // Note: This is a simplified version. Full implementation would use quaternions
@@ -543,8 +577,11 @@ function checkVoidFall() {
     const playerPos = camera.position;
     let inRoom = false;
     
-    // Check if player is within 25 units of any room center
+    // Check if player is within VOID_FALL_DISTANCE units of any room center
+    // For each room, calculate: distance = |playerPos - roomCenter|
+    // If distance < VOID_FALL_DISTANCE for any room, player is safe
     for (const room of world.rooms) {
+        // Euclidean distance: d = sqrt((x1-x2)² + (y1-y2)² + (z1-z2)²)
         const distToRoomCenter = playerPos.distanceTo(room.center);
         if (distToRoomCenter < VOID_FALL_DISTANCE) {
             inRoom = true;
@@ -554,10 +591,11 @@ function checkVoidFall() {
     
     if (!inRoom) {
         // Fell into void - reset level
-        gameState.health = Math.max(0, gameState.health - 20);
+        gameState.health = Math.max(0, gameState.health - 20); // Damage: max(0, health - 20)
+        // Reset player position to starting room (center grid position 1,1 = world 0,0,0)
         camera.position.set(0, -ROOM_SIZE / 2 + PLAYER_HEIGHT, 0);
-        gameState.velocity.set(0, 0, 0);
-        cameraShake.intensity = 1.0;
+        gameState.velocity.set(0, 0, 0); // Clear all velocity
+        cameraShake.intensity = 1.0; // Trigger camera shake effect
     }
 }
 
@@ -570,13 +608,17 @@ function checkGroundCollision() {
     // Check collision with all room floors
     world.rooms.forEach(room => {
         const floor = room.floor;
+        // Calculate world position of floor top surface
+        // floorTop = roomY + floorY + floorHeight/2
         const floorTop = room.group.position.y + floor.position.y + floor.geometry.parameters.height / 2;
         
         // Check if player capsule bottom is near floor
-        // Capsule bottom = playerPos.y - PLAYER_HEIGHT/2
+        // Capsule geometry: bottom sphere center = playerPos.y - (height - radius)
+        // For simplicity, we use: capsuleBottom = playerPos.y - height/2
         const capsuleBottom = playerPos.y - PLAYER_HEIGHT / 2;
         
-        // Check horizontal distance to floor center
+        // Check horizontal distance to floor center (2D distance in XZ plane)
+        // distance = sqrt((x1-x2)² + (z1-z2)²)
         const floorCenterX = room.group.position.x + floor.position.x;
         const floorCenterZ = room.group.position.z + floor.position.z;
         const horizontalDist = Math.sqrt(
@@ -585,12 +627,15 @@ function checkGroundCollision() {
         );
         
         // Check if within floor bounds (accounting for capsule radius)
+        // Player can be on floor if: horizontalDist < floorRadius - capsuleRadius
         if (horizontalDist < ROOM_SIZE / 2 - PLAYER_RADIUS) {
-            // Check vertical collision
+            // Check vertical collision: is capsule bottom touching floor top?
+            // Collision if: capsuleBottom ≤ floorTop AND capsuleBottom ≥ floorTop - threshold
             if (capsuleBottom <= floorTop && capsuleBottom >= floorTop - 0.5) {
                 // Collision! Place player on floor
+                // Resolve collision: playerPos.y = floorTop + height/2
                 playerPos.y = floorTop + PLAYER_HEIGHT / 2;
-                // Stop downward velocity
+                // Stop downward velocity (can't fall through floor)
                 if (gameState.velocity.y < 0) {
                     gameState.velocity.y = 0;
                 }
@@ -599,7 +644,7 @@ function checkGroundCollision() {
         }
     });
     
-    // Check collision with corridors
+    // Check collision with corridors (same logic as floors)
     world.corridors.forEach(corridor => {
         const corridorTop = corridor.position.y + corridor.geometry.parameters.height / 2;
         const capsuleBottom = playerPos.y - PLAYER_HEIGHT / 2;
@@ -608,7 +653,8 @@ function checkGroundCollision() {
         const corridorWidth = corridor.geometry.parameters.width;
         const corridorDepth = corridor.geometry.parameters.depth;
         
-        // Check if within corridor bounds
+        // Check if within corridor bounds (AABB collision)
+        // |dx| < width/2 AND |dz| < depth/2 (accounting for capsule radius)
         const dx = Math.abs(playerPos.x - corridor.position.x);
         const dz = Math.abs(playerPos.z - corridor.position.z);
         
@@ -635,37 +681,46 @@ function animate() {
     
     if (!gameState.isPlaying) return;
     
-    // Calculate frame time
-    const currentTime = performance.now() / 1000;
+    // Calculate frame time (variable, depends on display refresh rate)
+    // frameTime = currentTime - lastTime
+    const currentTime = performance.now() / 1000; // Convert ms to seconds
     let frameTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
     
     // Cap frame time to prevent spiral of death
+    // If frame takes too long (>250ms), cap it to avoid huge physics jumps
     if (frameTime > 0.25) {
         frameTime = 0.25;
     }
     
     // Add frame time to accumulator
+    // Accumulator stores "leftover" time that hasn't been simulated yet
     gameState.accumulator += frameTime;
     
     // Fixed timestep loop: process physics in fixed FIXED_TIMESTEP increments
+    // While there's enough time in accumulator for a full physics step:
+    //   1. Run physics for FIXED_TIMESTEP (1/60 = 0.01667s)
+    //   2. Subtract FIXED_TIMESTEP from accumulator
+    // This ensures physics runs at constant 60 Hz regardless of frame rate
     while (gameState.accumulator >= FIXED_TIMESTEP) {
-        updatePhysics(FIXED_TIMESTEP);
-        gameState.accumulator -= FIXED_TIMESTEP;
+        updatePhysics(FIXED_TIMESTEP); // Physics update with delta = 1/60
+        gameState.accumulator -= FIXED_TIMESTEP; // Remove simulated time
     }
+    // Note: Remaining time in accumulator carries over to next frame
     
-    // Update camera orientation interpolation
+    // Update camera orientation interpolation (visual only, not physics)
     updateCameraOrientation(frameTime);
     
-    // Update visual effects
+    // Update visual effects (loot rotation, particles, etc.)
     updateVisuals();
     
-    // Cinematic camera effects
+    // Cinematic camera effects (screen shake)
     applyCameraShake();
     
-    // Update HUD
+    // Update HUD text
     updateHUD();
     
+    // Render the scene
     renderer.render(scene, camera);
 }
 
@@ -674,16 +729,24 @@ function updatePhysics(delta) {
     if (!controls.isLocked) return;
     
     // Apply gravity force to velocity
-    // Force = gravityDir * GRAVITY * delta
-    // Acceleration = Force / mass (assuming mass = 1)
-    // velocity += acceleration * delta
+    // Newton's second law: F = ma, where m = 1 (unit mass)
+    // Acceleration: a = F/m = F = gravityDir * GRAVITY
+    // Velocity integration (Euler method): v(t+Δt) = v(t) + a*Δt
+    // Where:
+    //   v = velocity vector
+    //   a = acceleration = gravityDir * GRAVITY
+    //   Δt = delta time (FIXED_TIMESTEP = 1/60)
     const gravityAccel = gameState.gravityDir.clone().multiplyScalar(GRAVITY * delta);
-    gameState.velocity.add(gravityAccel);
+    gameState.velocity.add(gravityAccel); // v_new = v_old + a*Δt
     
     // Apply velocity to position
-    // position += velocity * delta
+    // Position integration (Euler method): p(t+Δt) = p(t) + v*Δt
+    // Where:
+    //   p = position vector
+    //   v = velocity vector
+    //   Δt = delta time
     const velocityDelta = gameState.velocity.clone().multiplyScalar(delta);
-    camera.position.add(velocityDelta);
+    camera.position.add(velocityDelta); // p_new = p_old + v*Δt
     
     // Check collisions
     checkGroundCollision();
@@ -699,47 +762,61 @@ function updatePhysics(delta) {
 function processMovement(delta) {
     // Get movement direction in camera space
     const moveDir = new THREE.Vector3();
-    const forward = Number(moveState.forward) - Number(moveState.backward);
-    const right = Number(moveState.right) - Number(moveState.left);
+    const forward = Number(moveState.forward) - Number(moveState.backward); // -1, 0, or 1
+    const right = Number(moveState.right) - Number(moveState.left); // -1, 0, or 1
     
-    if (forward === 0 && right === 0) return;
+    if (forward === 0 && right === 0) return; // No movement input
     
     // Get camera forward and right vectors
     const cameraForward = new THREE.Vector3();
     const cameraRight = new THREE.Vector3();
-    camera.getWorldDirection(cameraForward);
+    camera.getWorldDirection(cameraForward); // Forward = direction camera is facing
+    // Right vector = forward × up (cross product)
+    // Cross product: a × b = vector perpendicular to both a and b
     cameraRight.crossVectors(cameraForward, camera.up).normalize();
     
     // Combine forward and right movement
-    moveDir.addScaledVector(cameraForward, forward);
-    moveDir.addScaledVector(cameraRight, right);
-    moveDir.normalize();
+    // moveDir = forward*cameraForward + right*cameraRight
+    moveDir.addScaledVector(cameraForward, forward); // Add forward component
+    moveDir.addScaledVector(cameraRight, right); // Add right component
+    moveDir.normalize(); // Ensure unit vector: |moveDir| = 1
     
     // Project movement onto gravity-orthogonal plane
-    // For a plane with normal n, projection of v onto plane = v - (v·n)n
-    const dotProduct = moveDir.dot(gameState.gravityDir);
-    const projection = moveDir.clone().addScaledVector(gameState.gravityDir, -dotProduct);
-    projection.normalize();
+    // For a plane with normal n, projection of v onto plane:
+    // proj_plane(v) = v - proj_n(v) = v - (v·n)n
+    // Where:
+    //   v = vector to project (moveDir)
+    //   n = plane normal (gravityDir)
+    //   · = dot product
+    //   proj_n(v) = (v·n)n = component of v along n
+    const dotProduct = moveDir.dot(gameState.gravityDir); // v·n
+    const projection = moveDir.clone().addScaledVector(gameState.gravityDir, -dotProduct); // v - (v·n)n
+    projection.normalize(); // Ensure unit vector: |projection| = 1
     
     // Apply movement force
-    const baseSpeed = moveState.sprint ? 30 : 15;
-    const controlFactor = gameState.canJump ? 1.0 : AIR_CONTROL_FACTOR; // 40% control in air
-    const moveSpeed = baseSpeed * controlFactor * delta;
+    const baseSpeed = moveState.sprint ? 30 : 15; // units per second
+    // Air control = 40% of ground control
+    const controlFactor = gameState.canJump ? 1.0 : AIR_CONTROL_FACTOR;
+    const moveSpeed = baseSpeed * controlFactor * delta; // units per frame
     
-    // Apply damping to horizontal velocity
+    // Apply damping to velocity (friction/air resistance)
+    // v_new = v_old * dampingFactor
+    // dampingFactor < 1 causes velocity to decay
     const dampingFactor = 0.9;
     gameState.velocity.multiplyScalar(dampingFactor);
     
     // Add movement velocity
+    // v_new = v_old + moveDir * moveSpeed
     gameState.velocity.add(projection.multiplyScalar(moveSpeed));
     
     // Jump: apply impulse opposite to gravity
     if (moveState.jump && gameState.canJump) {
         // Jump impulse = -gravityDir * jumpStrength
-        const jumpStrength = 10;
+        // Negative gravity = upward (opposite to downward gravity)
+        const jumpStrength = 10; // units per second
         const jumpImpulse = gameState.gravityDir.clone().multiplyScalar(-jumpStrength);
-        gameState.velocity.add(jumpImpulse);
-        gameState.canJump = false;
+        gameState.velocity.add(jumpImpulse); // v_new = v_old + jumpImpulse
+        gameState.canJump = false; // Can only jump once until landing
     }
 }
 
