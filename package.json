@@ -2,9 +2,10 @@
   "name": "gravityheist",
   "version": "1.0.0",
   "description": "A surreal 3D heist game where players navigate procedurally generated floating architecture, evade adaptive AI security, and collect loot across gravity-shifting zones and time-warped areas",
+  "main": "server.js",
   "scripts": {
-    "start": "npx http-server -p 3000",
-    "dev": "npx http-server -p 3000"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "game",
